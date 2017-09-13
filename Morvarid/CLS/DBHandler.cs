@@ -6,7 +6,7 @@ using System.Windows.Forms;
 
 namespace Morvarid.CLS
 {
-    class CLSDBHandler
+    class DBHandler
     {
 
         public static string SrvName = @"DBSERVER"; //Your SQL Server Name
@@ -14,34 +14,53 @@ namespace Morvarid.CLS
         public static string UsrName = "us";//Your SQL Server User Name
         public static string Pasword = "xxxx";//Your SQL Server Password
         public static string Query;
-        public static string ToDay;
 
-        CLS.CLSGetShamsiDate DATE = new CLSGetShamsiDate();
         /// <summary>
         /// Public static method to access connection string throw out the project 
         /// </summary>
         /// <returns>return database connection string</returns>
+
         public static string GetConnectionString()
         {
             string DataSource = "";
+            //Application.StartupPath
+            //   string FileName =Application.StartupPath+ "\\ConnctionFile.txt";
+            //string text = System.IO.File.ReadAllText(FileName);
+
             // return "Data Source=" + SrvName + "; initial catalog=" + DbName + "; user id=" + UsrName + "; password=" + Pasword + ";";//Build Connection String and Return
             try
             {
-                DataSource = "Data Source=EVOLATION;Initial Catalog=MorvaridDB;Integrated Security=True";
+                DataSource = DataSource = "Data Source=EVOLATION;Initial Catalog=MorvaridDB;Integrated Security=True";
+
+                // DataSource = @"Data Source=(LocalDB)\\v11.0;AttachDbFilename=" + Application.StartupPath + "\\MorvaridDB.mdf;Integrated Security=True;Connect Timeout=30;";
+
+
+
             }
-            catch
+            catch (Exception er)
             {
-                DataSource = @"Data Source=(LocalDB)\\v11.0;AttachDbFilename=" + Application.StartupPath + "\\MorvaridDB.mdf;Integrated Security=True;Connect Timeout=30;";
+                MessageBox.Show(er.ToString());
             }
+           /* finally
+            {
+                DataSource = "Data Source=EVOLATION;Initial Catalog=MorvaridDB;Integrated Security=True";
+
+            }*/
+            
+                //string FileName = Application.StartupPath + "\\ConnctionFile.txt";
+                //   string path =System.IO.File.ReadAllText(FileName) ;                   
+
+            
 
             return DataSource;
 
         }
         public static string GetToDay()
         {
-            string toDay = "";
-            toDay = CLS.CLSGetShamsiDate.ToDay;
+            CLS.GetShamsiDate DATE = new GetShamsiDate();
 
+            string toDay = "";
+            toDay = DATE.ToDay;
             return toDay;
         }
         public static string GetCustomerListQuery()
@@ -53,6 +72,12 @@ namespace Morvarid.CLS
         {
             return "SELECT StorePicture_Number,StorePicture_BinaryPic,StorePicture_TempPic,StorePicture_AtDate FROM dbo.TBLStorePicture WHERE Customer_Code LIKE N'" + CustomerCode + "'";
         }
+        //تمامی مقادیر جدول تصاویر مربوط به هر شخص را برمی گرداند
+        public static string GetCustomerSelectedPicturesQuery(string CustomerCode, string PictureNumber)
+        {
+            return "select StorePicture_Number,StorePicture_BinaryPic,StorePicture_TempPic,StorePicture_AtDate from dbo.TBLStorePicture where StorePicture_Number = '" + PictureNumber + "' and Customer_Code = '"+CustomerCode+"'";
+        }
+
         public static string GetUpdateCustomerQuery(string CustomerCode , string CustomerFirstName , string CustomerLastName , string CustomerFatherName ,
             string CustomerPhoneNumber, string CustomerNationalCode, string CustomerBirthDay, string CustomerGender, string CustomerAddress, string CustomerEmail
             , string CustomerPictureCheck)
@@ -97,12 +122,13 @@ namespace Morvarid.CLS
         }
         public static string GetPictureCountQuery(string CustomerCode)
         {
-            return "SELECT COUNT(*) FROM dbo.TBLStorePicture WHERE Customer_Code = " + CustomerCode ;
+            return "SELECT COUNT(StorePicture_Number) FROM dbo.TBLStorePicture WHERE Customer_Code =" + CustomerCode ;
         }
 
         public static string GetPictureNumberQuery(string CustomerCode)
         {
-            return "SELECT TOP 1 StorePicture_Number FROM dbo.TBLStorePicture WHERE Customer_Code = " + CustomerCode;
+            return "SELECT TOP 1 StorePicture_Number FROM dbo.TBLStorePicture  WHERE Customer_Code="+CustomerCode
+                +" ORDER BY StorePicture_Number DESC";
         }
         public static string GetCustomerIdQuery()
         {
@@ -125,10 +151,10 @@ namespace Morvarid.CLS
 
         public static string GetStorePictureQuery()
         {
-            return "INSERT INTO TBLStorePicture (StorePicture_Id,Customer_Code,StorePicture_Number,"+
+            return "INSERT INTO TBLStorePicture (StorePicture_Id,Customer_SecurityCode,Customer_Code,StorePicture_Number," +
                    "StorePicture_BinaryPic,StorePicture_TempPic,StorePicture_AtDate) " +
 
-                   "values(@StorePicture_Id,@Customer_Code,@StorePicture_Number,@StorePicture_BinaryPic," +
+                   "values(@StorePicture_Id,@Customer_SecurityCode,@Customer_Code,@StorePicture_Number,@StorePicture_BinaryPic," +
                    "@StorePicture_TempPic,@StorePicture_AtDate)";
         }
 

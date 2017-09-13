@@ -173,11 +173,11 @@ namespace Morvarid
             return dialog;
         }
 
-        internal static DialogResult Show(string MessageTitleText, string MessageText, string messageTitle)
+        internal static DialogResult Show(string CaptionForm, string TitleMessage, string MessageText)
         {
             FRMMessageBox frmMessage = new FRMMessageBox();
-            frmMessage.Text = messageTitle;
-            frmMessage.setMessage(MessageTitleText, MessageText);
+            frmMessage.Text = CaptionForm;
+            frmMessage.setMessage(MessageText,TitleMessage);
             frmMessage.addIconImage(enumMessageIcon.Information);
             frmMessage.addButton(enumMessageButton.OK);
             frmMessage.ShowDialog();
@@ -186,12 +186,12 @@ namespace Morvarid
             return dialog;
         }
 
-        internal static DialogResult Show(string MessageTitleText, string MessageText, string messageTitle,
+        internal static DialogResult Show(string CaptionForm, string TitleMessage, string MessageText,
         enumMessageIcon messageIcon, enumMessageButton messageButton)
         {
             FRMMessageBox frmMessage = new FRMMessageBox();
-            frmMessage.setMessage(MessageTitleText, MessageText);
-            frmMessage.Text = messageTitle;
+            frmMessage.setMessage( MessageText,TitleMessage);
+            frmMessage.Text = CaptionForm;
             frmMessage.addIconImage(messageIcon);
             frmMessage.addButton(messageButton);
             DialogResult dialog = frmMessage.ShowDialog();

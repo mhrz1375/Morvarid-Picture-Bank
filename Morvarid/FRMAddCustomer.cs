@@ -14,114 +14,431 @@ using System.Globalization;
 using DevComponents.DotNetBar.Controls;
 using DevComponents.DotNetBar;
 using System.Diagnostics;
+using DevExpress.XtraBars.Ribbon;
+using DevExpress.XtraBars.Ribbon.ViewInfo;
+using DevExpress.Utils.Drawing;
+using Morvarid.CLS;
 
 namespace Morvarid
 {
     public partial class FRMAddCustomer : DevExpress.XtraEditors.XtraForm
+
+
+
+
     {
-        #region Values
-        private int CtrlWidth;
-        private int CtrlHeight;
-        private int PicWidth = 100;
-        private int PicHeight = 133;
-        private const int ConstXLocation = 10;
-        private const int ConstYLocation = 10;
+        /// <summary>
+        /// Start
+        /// CLS is here
+        /// </summary>
+        CLS.ImageHandler ImageHandler = new CLS.ImageHandler();
+        CLS.PriceToStringClass PriceToString = new CLS.PriceToStringClass();
+        CLS.GetShamsiDate DATE = new CLS.GetShamsiDate();
+        CLS.AccessLayer AccessLayer = new CLS.AccessLayer();
+        CLS.SendPictureToFullScreen FullScreenPicture = new CLS.SendPictureToFullScreen();
+        /// <summary>
+        /// end
+        /// CLS is here
+        /// </summary>
+        /// 
+
+
+
         private bool PictureAvailable = false;
         public bool CustomerExists = false;
-        private int XLocation = 10;
-        private int YLocation = 10;
         private int PictureCount = 0;
         private List<string> lstPicturePaths = new List<string>();
         private string ConnectionString;
 
-        CLS.CLSDBHandler dbHandler = new CLS.CLSDBHandler();
-        CLS.CLSGetShamsiDate GetToDay = new CLS.CLSGetShamsiDate();
-        CLS.CLSPriceToStringClass PriceToString = new CLS.CLSPriceToStringClass();
+        private int ZoomValue = 5;
 
 
+        public List<int> lstPictureNumber = new List<int>();
+        public List<Image> lstPictures = new List<Image>();
+        public List<Image> lstTempPictures = new List<Image>();
+        public List<string> lstStorePicturesAtDate = new List<string>();
+        public List<string> lstPictureSelected = new List<string>();
 
-        #endregion
+        GalleryItemGroup glcPicgroupNow = new GalleryItemGroup();
+        GalleryItemGroup glcPicgroupLast = new GalleryItemGroup();
+
+        SqlDataAdapter DataAdapter = new SqlDataAdapter();
+        DataTable CustomerDataTable = new DataTable();
+
+
         public FRMAddCustomer()
         {
             InitializeComponent();
-            
+            _form_resize = new FormResizer(this);
+            this.Load += _Load;
+            this.Resize += _Resize;
+
+           
+
         }
+        FormResizer _form_resize;
 
-        #region PictureBox Create Code here
-        private void DrawPictureBox(string _filename, string _displayname)
-        {
-            PictureBox Pic1 = new PictureBox();
-            CtrlHeight = pnlPictureViewer.Height;
-            CtrlWidth = pnlPictureViewer.Width;
-            for (int i = 0; i < 1; i++)
+ private void _Load(object sender, EventArgs e)
             {
-                //  buttonX1.Location = new System.Drawing.Point(XLocation, YLocation);
-                Pic1.Location = new System.Drawing.Point(XLocation, YLocation);
-                XLocation = XLocation + PicWidth + 10;
-                if (XLocation + PicWidth >= CtrlWidth)
-                {
-                    XLocation = 15;
-                    YLocation = YLocation + PicHeight + 10;
-                }
-                Pic1.Name = "PictureBox" + i;
-                i += 1;
-                Pic1.Size = new System.Drawing.Size(PicWidth, PicHeight);
-                Pic1.TabIndex = 0;
-                Pic1.TabStop = false;
-                Pic1.BorderStyle = BorderStyle.Fixed3D;
-                this.ttpImages.SetToolTip(Pic1, _filename + _displayname);
-                //  Pic1.MouseEnter += Pic1_MouseEnter;
-                // Pic1.MouseLeave += Pic1_MouseLeave;
-                //  this.Controls.Add(Pic1);
+                _form_resize._get_initial_size();
+            }
 
-                Pic1.ImageLocation = _filename;
-                //Pic1.BackColor = Color.Red;
-                Pic1.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
-                Pic1.BringToFront();
-                pnlPictureViewer.Controls.Add(Pic1);
-                Pic1.MouseEnter += new System.EventHandler(this.Pic1_MouseEnter);
-                //// Pic1.MouseDown += new System.Windows.Forms.MouseEventHandler(this.Pic1_MouseDown);
-                Pic1.MouseLeave += new System.EventHandler(this.Pic1_MouseLeave);
-                Pic1.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(this.Pic1_MouseClick);
+            private void _Resize(object sender, EventArgs e)
+            {
+                _form_resize._resize();
+            }
+        private void StorePicture()
+        {
+            string SCC = txtCustomerCode.Text.Trim();
+            string SCSC = txtCustomerSecurityCode.Text.Trim();
+            for (int i = 1; i <= PictureCount; ++i)
+            {
+                AccessLayer.SID = AccessLayer.MSID();
+                AccessLayer.SCC = SCC;
+                AccessLayer.SCSC = SCSC;
+                AccessLayer.SPN = AccessLayer.PicturenNumberMethod(SCC);
+                AccessLayer.SAD = DATE.ToDay;
+                AccessLayer.SBP = ImageHandler.ITB(lstPicturePaths[i - 1]);
+                AccessLayer.STP = ImageHandler.ITB(ImageHandler.RI(lstPicturePaths[i - 1]));
+                AccessLayer.StorePictureMethod();
             }
         }
-        private void Pic1_MouseEnter(System.Object sender, System.EventArgs e)
+
+        // Make sure the picture exists in picture list
+        public string PictureExists(string path)
         {
-            PictureBox Pic = default(PictureBox);
-            Pic = (PictureBox)sender;
-            Pic.BorderStyle = BorderStyle.FixedSingle;
+            string exists = null;
+            for (int i = 0; i < PictureCount; ++i)
+            {
+                try
+                {
+                    if (lstPicturePaths[i] == path)
+                    {
+                        exists = " !تصویر مورد نظر در لیست موجود است" + "\n" + path;
+                    }
+                }
+                catch
+                {
+                    exists = null;
+                }
+            }
+            return exists;
         }
-        private void Pic1_MouseLeave(System.Object sender, System.EventArgs e)
+        
+
+       
+        private void GalleryInitializeMethod(GalleryItemGroup g)
         {
-            PictureBox Pic = default(PictureBox);
-            Pic = (PictureBox)sender;
-            Pic.BorderStyle = BorderStyle.Fixed3D;
+            glcPictureViewer.Gallery.ItemImageLayout = ImageLayoutMode.ZoomInside;
+            ZoomInGallery(ZoomValue);
+            glcPictureViewer.Gallery.ShowItemText = true;
+            glcPictureViewer.Gallery.Groups.Add(g);
+            glcPictureViewer.Click += GlcPictureViewer_Click;
         }
-        private void Pic1_MouseDown(System.Object sender, System.EventArgs e)
+
+        private void GlcPictureViewer_Click(object sender, EventArgs e)
         {
-            PictureBox Pic = default(PictureBox);
-            Pic = (PictureBox)sender;
+            Point point = glcPictureViewer.PointToClient(Control.MousePosition);
+
+            RibbonHitInfo hitInfo = glcPictureViewer.CalcHitInfo(point);
+
+            if (hitInfo.InGalleryItem || hitInfo.HitTest == RibbonHitTest.GalleryImage)
+                item = hitInfo.GalleryItem;
+            if (Form.ModifierKeys == Keys.Control)
+            {
+
+                if (item != null)
+                    if (item.Checked)
+                    {
+                        item.Checked = false;
+                        lstPictureSelected.Remove(item.Caption);
+
+                    }
+                    else
+                    {
+                        item.Checked = true;
+                        lstPictureSelected.Add(item.Caption);
+
+                    }
+            }
         }
 
-        private void Pic1_MouseClick(Object sender, MouseEventArgs e)
+        private void BtnAddImages_Click(object sender, EventArgs e)
+        {                PictureAvailable = true;
+
+            GalleryInitializeMethod(glcPicgroupNow);
+
+            glcPicgroupNow.Caption =   PictureCount.ToString()+":الان اضافه شده";
+            OpenFileDialog myDialog = new OpenFileDialog();
+            myDialog.Filter = "JPG Files (*.jpg)|*.jpg|JPEG Files (*.jpeg)|*.jpeg|PNG Files (*.png)|*.png|GIF Files (*.gif)|*.gif";
+
+            myDialog.CheckFileExists = true;
+            myDialog.Multiselect = true;
+            if (myDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            {
+
+                foreach (string file in myDialog.FileNames)
+                {
+
+                    if (PictureExists(file) == null)
+                    {
+                        lstPicturePaths.Add(file);
+                        PictureCount = lstPicturePaths.Count();
+                        lblCount.Text = AccessLayer.MPC(txtCustomerCode.Text.Trim()) + "+" + PictureCount;
+                        Image img = Image.FromFile(file);
+
+
+                        glcPicgroupNow.Items.Add(new GalleryItem(img, PictureCount.ToString(), DATE.ToDay));
+
+
+                    }
+                    else
+                    {
+                        DialogResult Result = FRMMessageBox.Show(PictureExists(file), "تکرار تصویر", "!هشدار", enumMessageIcon.Question, enumMessageButton.OK);
+                    }
+                }
+            }
+            else
+            {
+                FRMMessageBox.Show("!هشدار", "!هشدار انتخاب تصاویر", " !لطفا تصاویر مورد نظر را وارد نمایید", enumMessageIcon.Warning, enumMessageButton.OK);
+
+            }
+        }
+
+        private void btnSave_Click(object sender, EventArgs e)
         {
-            PictureBox Pic = default(PictureBox);
-            Pic = (PictureBox)sender;
-            ///  pictureBox1.Image = Pic.Image;
 
-            MessageBox.Show("MouseClick Event");
+            if (PictureAvailable)
+            {
+                DialogResult Result = FRMMessageBox.Show("!هشدار", " ثبت اطلاعات مشتری","آیا مایل به ذخیره اطلاعات هستید؟",  enumMessageIcon.Question, enumMessageButton.YesNo);
+
+                if (Result == DialogResult.Yes)
+                {
+
+                    if (PictureCount != 0)
+                    {
+                        StorePicture();
+                        FRMMessageBox.Show("!هشدار", " ثبت اطلاعات مشتری",".ثبت اطلاعات و تصاویر با موفقیت انجام شد",  enumMessageIcon.Question, enumMessageButton.OK);
+                        AddCutomerMethod();
+
+                        lblCount.Text = AccessLayer.MPC(txtCustomerCode.Text.Trim()).ToString();
+                        ReloadValues();
+                    }
+                  
+                }
+            }
+            else
+            {
+                DialogResult Result = FRMMessageBox.Show("!هشدار", " ثبت اطلاعات مشتری بدون تصاویر","آیا اطلاعات مشتری بدون تصاویر ثبت شود؟",  enumMessageIcon.Question, enumMessageButton.YesNo);
+
+                if (Result == DialogResult.Yes)
+                {
+                    AddCutomerMethod();
+
+                    FRMMessageBox.Show("!هشدار", "  ثبت اطلاعات مشتری","ثبت بدون تصاویر با موفقیت انجام شد",  enumMessageIcon.Question, enumMessageButton.OK);
+                    ReloadValues();
+
+                }
+            }
+
+        }
+
+
+        private void btnCancel_Click(object sender, EventArgs e)
+        {
+
+            this.Close();
+        }
+        private void FRMEditCustomer_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            DialogResult Result = FRMMessageBox.Show("مشتری جدید","خروج","آیا از بستن این فرم مطمئن هستید؟",   enumMessageIcon.Question, enumMessageButton.YesNo);
+
+            if (Result == DialogResult.No)
+            {
+                e.Cancel = true;
+            }
+
+            ReloadValues();
+        }
+
+        private void FRMAddCustomer_Load(object sender, EventArgs e)
+        {
+
+           
+try
+            {
+                ConnectionString = CLS.DBHandler.GetConnectionString();
+            }
+            catch { }
+            ReloadValues();
 
 
 
         }
+        private void ReloadValues()
+        {
+            PictureCount = 0;// Count of customer picturs.
+            lstPicturePaths.Clear();// cleaning list of picture paths for store.
+            PictureAvailable = false; // Checked the picture exsist in list.
 
-        #endregion
+            lstPictureSelected.Clear();
 
-        #region Method is here
+
+            //   lstPictureCount.Clear();
+            lstPictures.Clear();
+            lstStorePicturesAtDate.Clear();
+            glcPicgroupLast.Dispose();
+            glcPicgroupNow.Dispose();
+
+
+            ConnectionString = CLS.DBHandler.GetConnectionString();
+
+            txtCustomerCode.Text = AccessLayer.MCC().ToString();
+            txtCustomerSecurityCode.Text = CLS.RandomPassword.Generate(4, 6);
+
+        }
+        private void ZoomInGallery(int Value)
+        {
+            ZoomValue = Value;
+            switch (Value)
+            {
+                case 0:
+                    glcPictureViewer.Gallery.ImageSize = new Size(51, 68);
+                    break;
+                case 1:
+                    glcPictureViewer.Gallery.ImageSize = new Size(58, 77);
+                    break;
+                case 2:
+                    glcPictureViewer.Gallery.ImageSize = new Size(66, 88);
+                    break;
+                case 3:
+                    glcPictureViewer.Gallery.ImageSize = new Size(77, 103);
+                    break;
+                case 4:
+                    glcPictureViewer.Gallery.ImageSize = new Size(90, 120);
+                    break;
+                case 5:
+
+                    glcPictureViewer.Gallery.ImageSize = new Size(108, 144);
+                    break;
+                case 6:
+                    glcPictureViewer.Gallery.ImageSize = new Size(133, 177);
+                    break;
+                case 7:
+                    glcPictureViewer.Gallery.ImageSize = new Size(170, 227);
+                    break;
+                case 8:
+                    glcPictureViewer.Gallery.ImageSize = new Size(235, 313);
+                    break;
+                case 9:
+                    glcPictureViewer.Gallery.ImageSize = new Size(361, 481);
+                    break;
+                case 10:
+                    glcPictureViewer.Gallery.ImageSize = new Size(739, 985);
+                    break;
+
+                default:
+                    glcPictureViewer.Gallery.ImageSize = new Size(108, 144);
+                    break;
+            }
+        }
+
+
+        private void brbtnShowFullScreen_ItemClick(object sender, DevExpress.XtraBars.ItemClickEventArgs e)
+        {
+            if (item != null)
+            {
+                FRMFullScreenPics ShowFullScreen = new FRMFullScreenPics();
+
+                FullScreenPicture.SCC = txtCustomerCode.Text.Trim();
+                FullScreenPicture.SPN = item.Caption;
+                FullScreenPicture.StartSendOnePitureToFullScreen();
+                ShowFullScreen.Show();
+            }
+
+        }
+
+        private void brbtnDeletePicture_ItemClick(object sender, DevExpress.XtraBars.ItemClickEventArgs e)
+        {
+            if (item != null)
+            {
+                item.GalleryGroup.Items.Remove(item);
+             //   lstPicturePaths
+              //  AccessLayer.DeletePicture(txtCustomerCode.Text.Trim(), item.Caption);
+            }
+
+        }
+        GalleryItem item = null;
+
+
+        private void popmManagrGallery_Popup(object sender, EventArgs e)
+        {
+            Point point = glcPictureViewer.PointToClient(Control.MousePosition);
+
+            RibbonHitInfo hitInfo = glcPictureViewer.CalcHitInfo(point);
+
+            if (hitInfo.InGalleryItem || hitInfo.HitTest == RibbonHitTest.GalleryImage)
+                item = hitInfo.GalleryItem;
+
+        }
+
+        private void popmManagrGallery_CloseUp(object sender, EventArgs e)
+        {
+            item = null;
+        }
+        private void brbtnSelect_ItemClick(object sender, DevExpress.XtraBars.ItemClickEventArgs e)
+        {
+            if (item != null)
+                if (item.Checked)
+                {
+                    item.Checked = false;
+                    lstPictureSelected.Remove(item.Caption);
+
+                }
+                else
+                {
+                    item.Checked = true;
+                    lstPictureSelected.Add(item.Caption);
+
+                }
+
+        }
+
+        private void btnRemoveSelectedPicture_Click(object sender, EventArgs e)
+        {
+            DialogResult Result = FRMMessageBox.Show("!هشدار", "!حذف تصاویر", "آیا تصاویر انتخابی حذف شوند؟", enumMessageIcon.Error, enumMessageButton.YesNo);
+            if (Result == DialogResult.Yes)
+            {
+                for (int i = 0; i <= lstPictureSelected.Count - 1; ++i)
+                {
+                }
+                ReloadValues();
+            }
+        }
+
+        private void btnFullScreen_Click(object sender, EventArgs e)
+        {
+            FRMFullScreenPics ShowFullScreen = new FRMFullScreenPics();
+
+            string SCC = txtCustomerCode.Text.Trim();
+
+            FullScreenPicture.SCC = SCC;
+            FullScreenPicture.StartSendPicturesToFullScreen();
+            ShowFullScreen.ShowDialog();
+        }
+
+        private void zoomTrackBarControl_EditValueChanged(object sender, EventArgs e)
+        {
+            int value = zoomTrackBarControl.Value;
+
+            ZoomInGallery(value);
+
+        }
+
+
         public void AddCutomerMethod()
         {
-            try
-            {
+            
                 string Gender = "";
                 bool isChecked = rdBtnMen.Checked;
                 if (isChecked)
@@ -133,169 +450,23 @@ namespace Morvarid
                     Gender = rdBtnWomen.Text;
                 }
 
-                string pictureChecked = null;
-                if (chbStorePicture.Checked)
-                {
-                    pictureChecked = "true";
-                }
-
-                else
-                {
-                    pictureChecked = "false";
-                }
-                using (SqlConnection thisConnection = new SqlConnection(ConnectionString))
-                {
-                    using (SqlCommand SqlCommand = new SqlCommand(CLS.CLSDBHandler.GetAddCustomerQuery(), thisConnection))
-                    {
-                        SqlCommand.Parameters.Add(new SqlParameter("@Customer_Id", (object)CustomerIDMethod()));
-                        SqlCommand.Parameters.Add(new SqlParameter("@Customer_Code", (object)txtCustomerCode.Text));
-                        SqlCommand.Parameters.Add(new SqlParameter("@Customer_SecurityCode", (object)txtSecurityCode.Text));
-                        SqlCommand.Parameters.Add(new SqlParameter("@Customer_FirstName", (object)txtFirstName.Text));
-                        SqlCommand.Parameters.Add(new SqlParameter("@Customer_LastName", (object)txtLastName.Text));
-                        SqlCommand.Parameters.Add(new SqlParameter("@Customer_FatherName", (object)txtFatherName.Text));
-                        SqlCommand.Parameters.Add(new SqlParameter("@Customer_PhoneNumber", (object)txtPhoneNumber.Text));
-                        SqlCommand.Parameters.Add(new SqlParameter("@Customer_NationalCode", (object)txtNationalCode.Text));
-                        SqlCommand.Parameters.Add(new SqlParameter("@Customer_BirthDay", (object)txtBirthDay.Text));
-                        SqlCommand.Parameters.Add(new SqlParameter("@Customer_Gender", (object)Gender));
-                        SqlCommand.Parameters.Add(new SqlParameter("@Customer_Address", (object)txtAddress.Text));
-                        SqlCommand.Parameters.Add(new SqlParameter("@Customer_Email", (object)txtEmail.Text));
-                        SqlCommand.Parameters.Add(new SqlParameter("@Customer_CreatedAtDate", (object)GetToDay.CRShamsiDate));
-                        SqlCommand.Parameters.Add(new SqlParameter("@Customer_PictureCheck", (object)pictureChecked));
-
-                        thisConnection.Open();
-                        SqlCommand.ExecuteNonQuery();
-                        thisConnection.Close();
-                    }
-                }
-                txtCustomerCode.Text = CustomerCodeMethod().ToString();
-                txtSecurityCode.Text = CLS.CLSRandomPassword.Generate(4, 6);
-                txtFirstName.Clear();
-                txtLastName.Clear();
-                txtFatherName.Clear();
-                txtPhoneNumber.Clear();
-                txtNationalCode.Clear();
-                txtAddress.Clear();
-                txtEmail.Clear();
-                pictureChecked = "false";
-                lstPicturePaths.Clear();
-                PictureAvailable = false;
-                PictureCount = 0;
-                chbStorePicture.Checked = false;
-            }
-            catch (Exception ex)
-            {
-                FRMMessageBox.Show(ex.ToString(), "!خطا در ذخیره اطلاعات");
-            }
-
+                AccessLayer.CC = txtCustomerCode.Text.Trim();
+                AccessLayer.CSC = txtCustomerSecurityCode.Text.Trim();
+                AccessLayer.CFN = txtFirstName.Text.Trim();
+                AccessLayer.CLN = txtLastName.Text.Trim();
+                AccessLayer.CFFN = txtFatherName.Text.Trim();
+                AccessLayer.CPN = txtPhoneNumber.Text.Trim();
+                AccessLayer.CNC = txtNationalCode.Text.Trim();
+                AccessLayer.CBD = txtBirthDay.Text.Trim();
+                AccessLayer.CG = Gender;
+                AccessLayer.CA = txtAddress.Text.Trim();
+                AccessLayer.CE = txtEmail.Text.Trim();
+                AccessLayer.CCAD = DATE.ToDay;
+                AccessLayer.CPA = PictureAvailable.ToString();
+                AccessLayer.MAC();
         }
 
-        public int CustomerCodeMethod()
-        {
 
-            int Code = 1;
-            int Result = 0;
-            using (SqlConnection thisConnection = new SqlConnection(ConnectionString))
-            {
-                using (SqlCommand cmdCount = new SqlCommand(CLS.CLSDBHandler.GetCustomerCodeQuery(), thisConnection))
-                {
-                    thisConnection.Open();
-                    try
-                    {
-                        Result = (int)cmdCount.ExecuteScalar();
-                        Code = Result + 1;
-                    }
-                    catch
-                    {
-                        Code = 1;
-                    }
-                    thisConnection.Close();
-                }
-            }
-
-            return Code;
-        }
-        public int CustomerIDMethod()
-        {
-            int Id = 1;
-            int Result = 0;
-            using (SqlConnection thisConnection = new SqlConnection(ConnectionString))
-            {
-                using (SqlCommand cmdCount = new SqlCommand(CLS.CLSDBHandler.GetCustomerIdQuery(), thisConnection))
-                {
-                    thisConnection.Open();
-                    try
-                    {
-                        Result = (int)cmdCount.ExecuteScalar();
-                        Id = Result + 1;
-                    }
-                    catch
-                    {
-                        Id = 1;
-                    }
-
-                    thisConnection.Close();
-                }
-            }
-
-            return Id;
-        }
-        public int StoreIDMethod()
-        {
-            int Id = 1;
-            int Result = 0;
-            using (SqlConnection thisConnection = new SqlConnection(ConnectionString))
-            {
-                using (SqlCommand cmdCount = new SqlCommand(CLS.CLSDBHandler.GetStoreIdQuery(), thisConnection))
-                {
-                    thisConnection.Open();
-                    try
-                    {
-                        Result = (int)cmdCount.ExecuteScalar();
-                        Id = Result + 1;
-                    }
-                    catch
-                    {
-                        Id = 1;
-                    }
-
-                    thisConnection.Close();
-                }
-            }
-
-            return Id;
-        }
-        public void StorePictureMethod()
-        {
-            try
-            {
-                for (int i = 1; i <= PictureCount; ++i)
-                {
-                    using (SqlConnection thisConnection = new SqlConnection(ConnectionString))
-                    {
-                        using (SqlCommand SqlCommand = new SqlCommand(CLS.CLSDBHandler.GetStorePictureQuery(), thisConnection))
-                        {
-                            //   "values(Store_Id,Customer_Code,Customer_SecurityCode,Store_PictureCount,Store_PicturePath,Store_PictureBinary)";
-                            SqlCommand.Parameters.Add(new SqlParameter("@Store_Id", (object)StoreIDMethod()));
-                            SqlCommand.Parameters.Add(new SqlParameter("@Customer_Code", (object)txtCustomerCode.Text.Trim()));
-                            SqlCommand.Parameters.Add(new SqlParameter("@Customer_SecurityCode", (object)txtSecurityCode.Text.Trim()));
-                            SqlCommand.Parameters.Add(new SqlParameter("@Store_PictureCount", (object)i));
-                            SqlCommand.Parameters.Add(new SqlParameter("@Store_PicturePath", (object)lstPicturePaths[i - 1]));
-                            SqlCommand.Parameters.Add(new SqlParameter("@Store_PictureBinary", (object)ReadFileMethod(lstPicturePaths[i - 1])));
-                            SqlCommand.Parameters.Add(new SqlParameter("@Store_AtDate", (object)GetToDay.CRShamsiDate));
-
-                            thisConnection.Open();
-                            SqlCommand.ExecuteNonQuery();
-                            thisConnection.Close();
-                        }
-                    }
-                }
-                MessageBox.Show("تصاویر مشتری ثبت شد");
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(ex.ToString());
-            }
-        }
 
         public string PictureExistsMethod(string path)
         {
@@ -322,7 +493,7 @@ namespace Morvarid
         {
             using (SqlConnection thisConnection = new SqlConnection(ConnectionString))
             {
-                using (SqlCommand cmdCount = new SqlCommand(CLS.CLSDBHandler.GetCustomerExistsQuery(), thisConnection))
+                using (SqlCommand cmdCount = new SqlCommand(CLS.DBHandler.GetCustomerExistsQuery(), thisConnection))
                 {
                     thisConnection.Open();
                     cmdCount.Parameters.AddWithValue("@Customer_Code", txtCustomerCode.Text);
@@ -340,128 +511,10 @@ namespace Morvarid
             }
         }
 
-        public byte[] ReadFileMethod(string sPath)
-        {
-            if (sPath != null)
-            {
-                byte[] data = null;
-
-                FileInfo fInfo = new FileInfo(sPath);
-                long numBytes = fInfo.Length;
-                FileStream fStream = new FileStream(sPath, FileMode.Open, FileAccess.Read);
-                BinaryReader br = new BinaryReader(fStream);
-                data = br.ReadBytes((int)numBytes);
-                return data;
-            }
-            return null;
-        }
-        private void ResetValueMethod()
-        {
-            YLocation = ConstYLocation;
-            XLocation = ConstXLocation;
-            PictureCount = 0;
-            lstPicturePaths.Clear();
-            lblCount.Text = "0";
-            PictureAvailable = false;
-
-        }
-        private double CreditorPriceMethod()
-        {
-            if (lblCreditorPrice.Text == "0")
-            {
-                btnSave.Enabled = true;
-            }
-            else
-            {
-                btnSave.Enabled = false;
-            }
-            CreditorPrice = Payable - (CashPayment + MarkDown + Credit + Check + CardReader);
-            return CreditorPrice;
-        }
-        #endregion
+      
+       
 
 
-        #region Buttons code here
-
-        private void BtnAddImages_Click(object sender, EventArgs e)
-        {
-            OpenFileDialog myDialog = new OpenFileDialog();
-            myDialog.Filter = "JPG Files (*.jpg)|*.jpg|JPEG Files (*.jpeg)|*.jpeg|PNG Files (*.png)|*.png|GIF Files (*.gif)|*.gif";
-
-            myDialog.CheckFileExists = true;
-            myDialog.Multiselect = true;
-            if (myDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-            {
-                foreach (string file in myDialog.FileNames)
-                {
-
-                    if (PictureExistsMethod(file) == null)
-                    {
-                        lstPicturePaths.Add(file);
-                        DrawPictureBox(file, "displayname" + PictureCount);
-                        PictureCount += 1;
-                    }
-                    else
-                    {
-                        DialogResult Result = FRMMessageBox.Show(PictureExistsMethod(file), "تکرار تصویر", "!هشدار", enumMessageIcon.Question, enumMessageButton.OK);
-                    }
-                }
-            }
-            lblCount.Text = PictureCount.ToString();
-        }
-
-        private void btnSave_Click(object sender, EventArgs e)
-        {
-            if (CustomerExistsMethod() != true)
-            {
-                if (PictureAvailable)
-                {
-                    DialogResult Result = FRMMessageBox.Show("آیا اطلاعات مشتری ثبت شود؟", " ثبت اطلاعات مشتری", "!هشدار", enumMessageIcon.Question, enumMessageButton.YesNo);
-
-                    if (Result == DialogResult.Yes)
-                    {
-                        if (PictureCount != 0)
-                        {
-                            StorePictureMethod();
-                            AddCutomerMethod();
-                            pnlPictureViewer.Controls.Clear();
-                        }
-                        else
-                        {
-                            FRMMessageBox.Show(" !لطفا تصاویر مورد نظر را وارد نمایید", "!هشدار انتخاب تصاویر", "!هشدار", enumMessageIcon.Warning, enumMessageButton.OK);
-                        }
-                    }
-                }
-                else
-                {
-                    DialogResult Result = FRMMessageBox.Show("آیا اطلاعات مشتری بدون تصاویر ثبت شود؟", " ثبت اطلاعات مشتری بدون تصاویر", "!هشدار", enumMessageIcon.Question, enumMessageButton.YesNo);
-
-                    if (Result == DialogResult.Yes)
-                    {
-                        AddCutomerMethod();
-                    }
-                }
-            }
-            else
-            {
-                FRMMessageBox.Show(" !شماره وارد شده قبلا ثبت شده است", "!هشدار ذخیره اطلاعات", "!هشدار", enumMessageIcon.Warning, enumMessageButton.OK);
-            }
-
-        }
-
-
-        private void btnCancel_Click(object sender, EventArgs e)
-        {
-
-            DialogResult Result = FRMMessageBox.Show("آیا مایل به لغو ثبت مشتری هستید؟", "لغو ثبت مشتری", "!هشدار", enumMessageIcon.Question, enumMessageButton.YesNo);
-
-            if (Result == DialogResult.Yes)
-            {
-                this.Close();
-            }
-        }
-
-        #endregion
 
         #region txtBoxes event here
         private void txtCustomerCode_KeyPress(object sender, KeyPressEventArgs e)
@@ -482,186 +535,8 @@ namespace Morvarid
 
 
 
-        private double Payable = 0;
-        private double MarkDown = 0;
-        private double Credit = 0;
-        private double CashPayment = 0;
-        private double CreditorPrice = 0;
-        private double CardReader = 0;
-        private double Check = 0;
-        private double SumPayment = 0;
 
-        private void chbgbPayable_CheckedChanged(object sender, EventArgs e)
-        {
-            if (chbgbPayable.Checked)
-            {
-                gbPayable.Enabled = true;
-            }
-            else
-            {
-                gbPayable.Enabled = false;
-            }
-
-        }
-
-        private void Price()
-        {
-            if (txtPayable.Text == "")
-            {
-                txtPayable.Text = "0";
-            }
-            txtPayable.Text = Convert.ToDouble(txtPayable.Text.Replace(",", "")).ToString("n0");
-            txtPayable.SelectionStart = txtPayable.Text.Length;
-            Payable = Convert.ToDouble(txtPayable.Text.Replace(",", ""));
-
-
-            if (txtCashPayment.Text == "")
-            {
-                txtCashPayment.Text = "0";
-            }
-            txtCashPayment.Text = Convert.ToDouble(txtCashPayment.Text.Replace(",", "")).ToString("n0");
-            txtCashPayment.SelectionStart = txtCashPayment.Text.Length;
-            CashPayment = Convert.ToDouble(txtCashPayment.Text.Replace(",", ""));
-
-
-            if (txtCashPayment.Text == "")
-            {
-                txtMarkDown.Text = "0";
-            }
-            txtMarkDown.Text = Convert.ToDouble(txtMarkDown.Text.Replace(",", "")).ToString("n0");
-            txtMarkDown.SelectionStart = txtMarkDown.Text.Length;
-            MarkDown = Convert.ToDouble(txtMarkDown.Text.Replace(",", ""));
-
-
-            if (txtCredit.Text == "")
-            {
-                txtCredit.Text = "0";
-            }
-            txtCredit.Text = Convert.ToDouble(txtCredit.Text.Replace(",", "")).ToString("n0");
-            txtCredit.SelectionStart = txtCredit.Text.Length;
-            Credit = Convert.ToDouble(txtCredit.Text.Replace(",", ""));
-
-            if (txtCardReader.Text == "")
-            {
-                txtCardReader.Text = "0";
-            }
-            txtCardReader.Text = Convert.ToDouble(txtCardReader.Text.Replace(",", "")).ToString("n0");
-            txtCardReader.SelectionStart = txtCardReader.Text.Length;
-            CardReader = Convert.ToDouble(txtCardReader.Text.Replace(",", ""));
-
-            if (txtCheck.Text == "")
-            {
-                txtCheck.Text = "0";
-            }
-            txtCheck.Text = Convert.ToDouble(txtCheck.Text.Replace(",", "")).ToString("n0");
-            txtCheck.SelectionStart = txtCheck.Text.Length;
-            Check = Convert.ToDouble(txtCheck.Text.Replace(",", ""));
-
-
-
-            lblCreditorPrice.Text = CreditorPriceMethod().ToString();
-            lblSumPrice.Text = SumPaymentMethod().ToString();
-            txtAlphabetPrice.Text = PriceToString.PriceToString(SumPaymentMethod().ToString());
-            lblSumPrice.Text = Convert.ToDouble(lblSumPrice.Text.Replace(",", "")).ToString("n0");
-
-
-        }
-        private void txtPayable_TextChanged(object sender, EventArgs e)
-        {
-            Price();
-        }
-        private void txtCashPayment_TextChanged(object sender, EventArgs e)
-        {
-            Price();
-        }
-        private void txtMarkDown_TextChanged(object sender, EventArgs e)
-        {
-            Price();
-        }
-        private void txtCredit_TextChanged(object sender, EventArgs e)
-        {
-            Price();
-        }
-        private void txtCardReader_TextChanged(object sender, EventArgs e)
-        {
-            Price();
-        }
-        private void txtCheck_TextChanged(object sender, EventArgs e)
-        {
-            Price();
-        }
-        private void txtPayable_KeyPress(object sender, KeyPressEventArgs e)
-        {
-            if (!char.IsControl(e.KeyChar) && !char.IsDigit(e.KeyChar))
-            {
-                e.Handled = true;
-                txtPayable.Border.BorderColor = System.Drawing.Color.Red;
-            }
-            else
-            {
-                txtPayable.Border.BorderColor = System.Drawing.Color.Gray;
-            }
-        }
-        private void txtCashPayment_KeyPress(object sender, KeyPressEventArgs e)
-        {
-            if (!char.IsControl(e.KeyChar) && !char.IsDigit(e.KeyChar))
-            {
-                e.Handled = true;
-                txtCashPayment.Border.BorderColor = System.Drawing.Color.Red;
-            }
-            else
-            {
-                txtCashPayment.Border.BorderColor = System.Drawing.Color.Gray;
-            }
-        }
-        private void txtMarkDown_KeyPress(object sender, KeyPressEventArgs e)
-        {
-            if (!char.IsControl(e.KeyChar) && !char.IsDigit(e.KeyChar))
-            {
-                e.Handled = true;
-                txtMarkDown.Border.BorderColor = System.Drawing.Color.Red;
-            }
-            else
-            {
-                txtMarkDown.Border.BorderColor = System.Drawing.Color.Gray;
-            }
-        }
-        private void txtCredit_KeyPress(object sender, KeyPressEventArgs e)
-        {
-            if (!char.IsControl(e.KeyChar) && !char.IsDigit(e.KeyChar))
-            {
-                e.Handled = true;
-                txtCredit.Border.BorderColor = System.Drawing.Color.Red;
-            }
-            else
-            {
-                txtCredit.Border.BorderColor = System.Drawing.Color.Gray;
-            }
-        }
-        private void txtCardReader_KeyPress(object sender, KeyPressEventArgs e)
-        {
-            if (!char.IsControl(e.KeyChar) && !char.IsDigit(e.KeyChar))
-            {
-                e.Handled = true;
-                txtCardReader.Border.BorderColor = System.Drawing.Color.Red;
-            }
-            else
-            {
-                txtCardReader.Border.BorderColor = System.Drawing.Color.Gray;
-            }
-        }
-        private void txtCheck_KeyPress(object sender, KeyPressEventArgs e)
-        {
-            if (!char.IsControl(e.KeyChar) && !char.IsDigit(e.KeyChar))
-            {
-                e.Handled = true;
-                txtCheck.Border.BorderColor = System.Drawing.Color.Red;
-            }
-            else
-            {
-                txtCheck.Border.BorderColor = System.Drawing.Color.Gray;
-            }
-        }
+      
         private void txtNationalCode_KeyPress(object sender, KeyPressEventArgs e)
         {
             if (!char.IsControl(e.KeyChar) && !char.IsDigit(e.KeyChar))
@@ -688,42 +563,15 @@ namespace Morvarid
         }
 
 
-        private double SumPaymentMethod()
-        {
-            SumPayment = CashPayment + MarkDown + Check + CardReader;
-            return SumPayment;
-        }
+   
 
         private void txtCustomerCode_TextChanged(object sender, EventArgs e)
         {
             lblCustomerCodeImage.Text = txtCustomerCode.Text;
         }
 
-        private void simpleButton3_Click(object sender, EventArgs e)
-        {
-            MessageBox.Show(StoreIDMethod().ToString());
-        }
-
-        private void chbStorePicture_CheckedChanged(object sender, EventArgs e)
-        {
-            if (!chbStorePicture.Checked)
-            {
-                gbPictureView.Enabled = false;
-                gbStorePictureTools.Enabled = false;
-                pnlPictureViewer.Controls.Clear();
-                ResetValueMethod();
-            }
-            else
-            {
-
-                PictureAvailable = true;
-
-
-                gbPictureView.Enabled = true;
-                gbStorePictureTools.Enabled = true;
-
-            }
-        }
+    
+   
 
 
 
@@ -740,36 +588,19 @@ namespace Morvarid
         }
 
 
-        private void btnSelectRegistryDate_Click(object sender, EventArgs e)
-        {
-            PersianCalenderRegistryDate.Visible = true;
-        }
 
-        private void PersianCalenderRegistryDate_Load(object sender, EventArgs e)
-        {
 
-        }
-        private void PersianCalenderRegistryDate_SelectedDateChanged(DateTime selectedDateTime, BehComponents.PersianDateTime selectedPersianDateTime)
-        {
-            txtRegistryDate.Text = PersianCalenderRegistryDate.GetSelectedDateInPersianDateTime().ToShortDateString();
-            PersianCalenderRegistryDate.Visible = false;
-        }
+
+
+
         #endregion
 
-        private void FRMAddCustomer_Load(object sender, EventArgs e)
+        private void btnPrintPicture_Click(object sender, EventArgs e)
         {
-                try
-                {
-                    ConnectionString = CLS.CLSDBHandler.GetConnectionString();
-                }
-                catch { }
-                txtCustomerCode.Text = CustomerCodeMethod().ToString();
-                txtSecurityCode.Text = CLS.CLSRandomPassword.Generate(4, 6);
-                txtRegistryDate.Text = PersianCalenderRegistryDate.GetSelectedDateInPersianDateTime().ToShortDateString();
-
-         
 
         }
+
+   
     }
 }
 
@@ -780,34 +611,11 @@ namespace Morvarid
 
 
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/*
-        public string StorePictureExists(string path)
-        {
-            string exists = "";
-            using (SqlConnection thisConnection = new SqlConnection(DBHandler.GetConnectionString()))
-            {
-                using (SqlCommand SqlCommand = new SqlCommand(DBHandler.GetPictureExistsQuery(), thisConnection))
-                {
-                    thisConnection.Open();
-                    SqlCommand.Parameters.Add(new SqlParameter("@Store_PicturePath", (object)path));
 
-                    exists = (string)SqlCommand.ExecuteScalar();
 
-                    thisConnection.Close();
-                }
-            }
-            if (exists == path)
-            {
-                exists ="! این تصویر قبلا ثبت شده است"+"\n"+ path;
-            }
-            return exists;
-        }*/
-/// <summary>
-/// ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/// </summary>
-/// <returns></returns>
+
+
 
 
 

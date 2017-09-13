@@ -6,7 +6,7 @@ using System.Threading;
 
 namespace Morvarid.CLS
 {
-    class CLSProgressSavePictures
+    class ProgressSavePictures
     {
         private static Thread th = new Thread(new ThreadStart(showProgressForm));
         public void startProgress()

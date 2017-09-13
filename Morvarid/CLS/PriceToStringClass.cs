@@ -5,7 +5,7 @@ using System.Text;
 
 namespace Morvarid.CLS
 {
-    class CLSPriceToStringClass
+    class PriceToStringClass
     {
         private static string[] yakan = new string[10] { "صفر", "یک", "دو", "سه", "چهار", "پنج", "شش", "هفت", "هشت", "نه" };
         private static string[] dahgan = new string[10] { "", "", "بیست", "سی", "چهل", "پنجاه", "شصت", "هفتاد", "هشتاد", "نود" };

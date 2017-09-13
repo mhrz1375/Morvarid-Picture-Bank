@@ -6,17 +6,17 @@ using System.Text;
 
 namespace Morvarid.CLS
 {
-    class CLSGetShamsiDate
+    class GetShamsiDate
     {
 
         private String DayName;
         private String MonthName;
         private String CompleteShamsiDate;
         private String ShamsiDate;
-        public static string ToDay;
+        public  String ToDay;
         DateTime dt = DateTime.Now;
 
-        public CLSGetShamsiDate()
+        public GetShamsiDate()
         {
             if (dt.DayOfWeek == DayOfWeek.Friday)
                 DayName = "جمعه";

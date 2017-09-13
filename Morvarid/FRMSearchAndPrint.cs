@@ -1,21 +1,22 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Data;
 using System.Drawing;
+using System.Text;
+using System.Linq;
 using System.Windows.Forms;
-using System.Data.SqlClient;
-using System.IO;
-using System.Diagnostics;
+using DevExpress.XtraEditors;
 using DevExpress.XtraBars.Ribbon;
 using DevExpress.Utils.Drawing;
+using DevExpress.XtraBars.Ribbon.ViewInfo;
+using System.Diagnostics;
 using Morvarid.CLS;
 
 namespace Morvarid
 {
-
-    public partial class FRMCustomerList : DevExpress.XtraEditors.XtraForm
+    public partial class FRMSearchAndPrint : DevExpress.XtraEditors.XtraForm
     {
-        /// <summary>
         //Strings for customers value
         public static string strCustomerCode;
         public static string strCustomerSecurityCode;
@@ -37,11 +38,40 @@ namespace Morvarid
         public bool CustomerExists = false;
         public bool PictureLoading = false;
 
+        /// <summary>
+        /// Start
+        /// CLS is here
+        /// </summary>
+        CLS.SendPictureToFullScreen FullScreenPicture = new CLS.SendPictureToFullScreen();
+        /// <summary>
+        /// end
+        /// CLS is here
+        /// </summary>
 
 
 
 
-        FRMAddCustomer AddCustomer = new FRMAddCustomer();
+
+
+
+        private List<string> lstPicturePaths = new List<string>();
+
+        private int ZoomValue = 5;
+
+        // CLS.CLSDBHandler dbHandler = new CLS.CLSDBHandler();
+
+        public List<int> lstPictureNumber = new List<int>();
+        public List<Image> lstPictures = new List<Image>();
+        public List<Image> lstTempPictures = new List<Image>();
+        public List<string> lstStorePicturesAtDate = new List<string>();
+        public List<string> lstPictureSelected = new List<string>();
+
+
+        FRMAddCustomer ShowAddCustomer = new FRMAddCustomer();
+        DataTable CustomerDataTable = new DataTable();
+
+        FRMCustomerList ShowCustomerList = new FRMCustomerList();
+
 
 
         /// <summary>
@@ -58,34 +88,41 @@ namespace Morvarid
         GalleryItemGroup glcPicgroupLast = new GalleryItemGroup();
 
 
-
-        public FRMCustomerList()
+        public FRMSearchAndPrint()
         {
             InitializeComponent();
             ConnectionString = CLS.DBHandler.GetConnectionString();
 
-            SearchResult(CLS.DBHandler.GetCustomerListQuery());
-
-        
-        _form_resize = new FormResizer(this);
-            this.Load += _Load;
-            this.Resize += _Resize;
-
-           
-
+            Result(CLS.DBHandler.GetCustomerListQuery());
+           ChangeLanguage();
         }
-    FormResizer _form_resize;
 
-    private void _Load(object sender, EventArgs e)
-    {
-        _form_resize._get_initial_size();
-    }
 
-    private void _Resize(object sender, EventArgs e)
-    {
-        _form_resize._resize();
-    }
-    private void InitializeDgCustomerList()
+        private InputLanguage GetFarsiLanguage()
+        {
+            //Enumerate through InstalledInputLanguages which contains
+            //all the keyboard layout you’ve installed in your windows.
+            foreach (InputLanguage lang in InputLanguage.InstalledInputLanguages)
+            {
+                if (lang.LayoutName.ToLower() == "persian" || lang.LayoutName.ToLower() == "farsi")
+                    return lang;
+            }
+
+            return null;
+        }
+
+
+        public void ChangeLanguage()
+        {
+            InputLanguage lang = GetFarsiLanguage();
+
+            //Set the current language of the system to
+            //the InputLanguage instance you need.
+            InputLanguage.CurrentInputLanguage = lang ?? throw new NotSupportedException("Farsi Language keyboard is not installed.");
+        }
+
+
+        private void InitializeDgCustomerList()
         {
             dgCustomerList.Columns["Customer_Code"].HeaderText = "کد مشتری";
             dgCustomerList.Columns["Customer_FirstName"].HeaderText = "نام";
@@ -100,22 +137,22 @@ namespace Morvarid
             dgCustomerList.Columns["Customer_EditedAtDate"].HeaderText = "تاریخ ویرایش";
             dgCustomerList.Columns["Customer_BirthDay"].HeaderText = "تاریخ تولد";
             dgCustomerList.Columns["Customer_Address"].HeaderText = "آدرس";
-dgCustomerList.Columns["Customer_Id"].Visible = false;
+
+          dgCustomerList.Columns["Customer_Code"].Width = 75;
+            dgCustomerList.Columns["Customer_FirstName"].Width = 115;
+            dgCustomerList.Columns["Customer_LastName"].Width = 185;
+            dgCustomerList.Columns["Customer_FatherName"].Width = 115;
+            dgCustomerList.Columns["Customer_PhoneNumber"].Visible = false;
+            dgCustomerList.Columns["Customer_Gender"].Visible = false;
+            dgCustomerList.Columns["Customer_NationalCode"].Visible = false;
+            dgCustomerList.Columns["Customer_Email"].Visible = false; ;
+            dgCustomerList.Columns["Customer_CreatedAtDate"].Visible = false;
+            dgCustomerList.Columns["Customer_BirthDay"].Visible = false;
+            dgCustomerList.Columns["Customer_EditedAtDate"].Visible = false;
+            dgCustomerList.Columns["Customer_Address"].Visible = false;
+            dgCustomerList.Columns["Customer_Id"].Visible = false;
             dgCustomerList.Columns["Customer_SecurityCode"].Visible = false;
             dgCustomerList.Columns["Customer_PictureCheck"].Visible = false;
-            dgCustomerList.Columns["Customer_Code"].Width = 120;
-            dgCustomerList.Columns["Customer_FirstName"].Width = 170;
-            dgCustomerList.Columns["Customer_LastName"].Width = 220;
-            dgCustomerList.Columns["Customer_FatherName"].Width = 170;
-            dgCustomerList.Columns["Customer_PhoneNumber"].Width = 200;
-            dgCustomerList.Columns["Customer_Gender"].Width = 80;
-            dgCustomerList.Columns["Customer_NationalCode"].Width = 200;
-            dgCustomerList.Columns["Customer_Email"].Width = 180;
-            dgCustomerList.Columns["Customer_CreatedAtDate"].Width = 120;
-            dgCustomerList.Columns["Customer_BirthDay"].Width = 120;
-            dgCustomerList.Columns["Customer_EditedAtDate"].Width = 100;
-            dgCustomerList.Columns["Customer_Address"].Width = 200;
-            
             dgCustomerList.RowTemplate.Height = 25;
             dgCustomerList.ColumnHeadersDefaultCellStyle.Font = new Font("B Nazanin", 12F, FontStyle.Bold);
 
@@ -140,13 +177,19 @@ dgCustomerList.Columns["Customer_Id"].Visible = false;
             glcPictureViewer.Gallery.Groups.Add(glcPicgroupLast);
             foreach (DataRow ROW in DTStorePicture.Rows)
             {
+
+                lstPictureNumber.Add(ROW.Field<int>(0));
+                lstPictures.Add(ImageHandler.BTI(ROW.Field<byte[]>(1)));
+                lstTempPictures.Add(ImageHandler.BTI(ROW.Field<byte[]>(2)));
+
+                lstStorePicturesAtDate.Add(ROW.Field<string>(3));
+
                 glcPicgroupLast.Items.Add(new GalleryItem(ImageHandler.BTI(ROW.Field<byte[]>(2)), "" + ROW.Field<int>(0), ROW.Field<string>(3)));
+
             }
 
 
         }
-
-        private int ZoomValue = 5;
 
         private void GalleryInitializeMethod(GalleryItemGroup g)
         {
@@ -154,7 +197,52 @@ dgCustomerList.Columns["Customer_Id"].Visible = false;
             ZoomInGallery(ZoomValue);
             glcPictureViewer.Gallery.ShowItemText = true;
             glcPictureViewer.Gallery.Groups.Add(g);
+            glcPictureViewer.Click += GlcPictureViewer_Click;
+
         }
+
+        private void GlcPictureViewer_Click(object sender, EventArgs e)
+        {
+            Point point = glcPictureViewer.PointToClient(Control.MousePosition);
+
+            RibbonHitInfo hitInfo = glcPictureViewer.CalcHitInfo(point);
+
+            if (hitInfo.InGalleryItem || hitInfo.HitTest == RibbonHitTest.GalleryImage)
+                item = hitInfo.GalleryItem;
+            if (Form.ModifierKeys == Keys.Control)
+            {
+
+                if (item != null)
+                    if (item.Checked)
+                    {
+                        item.Checked = false;
+                        lstPictureSelected.Remove(item.Caption);
+
+                    }
+                    else
+                    {
+                        item.Checked = true;
+                        lstPictureSelected.Add(item.Caption);
+
+                    }
+            }
+        }
+
+        private void brbtnShowFullScreen_ItemClick(object sender, DevExpress.XtraBars.ItemClickEventArgs e)
+        {
+            if (item != null)
+            {
+                FRMFullScreenPics ShowFullScreen = new FRMFullScreenPics();
+
+                FullScreenPicture.SCC = strCustomerCode.Trim();
+                FullScreenPicture.SPN = item.Caption;
+                FullScreenPicture.StartSendOnePitureToFullScreen();
+                ShowFullScreen.Show();
+            }
+
+        }
+
+
         private void ZoomInGallery(int Value)
         {
             ZoomValue = Value;
@@ -209,10 +297,10 @@ dgCustomerList.Columns["Customer_Id"].Visible = false;
             ReloadValues();
             int Row;//= dgCustomerList.FirstDisplayedCell.RowIndex;
 
-         Row= 0;
+            Row = 0;
             try
             {
-               if (!SwitchSelectedRow)
+                if (!SwitchSelectedRow)
                 {
                     dgCustomerList.Rows[0].Selected = true;
 
@@ -221,7 +309,7 @@ dgCustomerList.Columns["Customer_Id"].Visible = false;
                 }
                 if (dgCustomerList.SelectedRows.Count > 0) // make sure user select at least 1 row 
                 {
-                   
+
 
                     strCustomerCode = dgCustomerList.SelectedRows[Row].Cells[1].Value + string.Empty;
                     strCustomerSecurityCode = dgCustomerList.SelectedRows[Row].Cells[2].Value + string.Empty;
@@ -240,156 +328,232 @@ dgCustomerList.Columns["Customer_Id"].Visible = false;
                     if (strCustomerPictureCheck == "True")
                     {
                         string qry = CLS.DBHandler.GetCustomerPicturesQuery(strCustomerCode.Trim());
+                        lstPictures.Clear();
                         RetrievePicture(ImageHandler.SPTDT(qry));
 
                     }
-}
-                InitializeDgCustomerList();
-                InitializeDgCustomerListColor();
+                }
             }
             catch (Exception e)
             {
                 MessageBox.Show(e.ToString());
             }
-
+            InitializeDgCustomerList();
+            InitializeDgCustomerListColor();
 
         }
         private void ReloadValues()
         {
             glcPicgroupLast.Dispose();
-           
-            if(strCustomerCode!=null)
-            lblCount.Text = AccessLayer.MPC(strCustomerCode.Trim()).ToString();
+
+            if (strCustomerCode != null)
+                lblCount.Text = AccessLayer.MPC(strCustomerCode.Trim()).ToString();
 
         }
 
-        public void SearchResult(string Query)
+        public void Result(string Query)
         {
-            
+
             dgCustomerList.DataSource = AccessLayer.SearchResult(Query);
             InitializeDgCustomerListColor();
             SelectedRow();
         }
+        GalleryItem item = null;
 
 
+        private void popmManagrGallery_Popup(object sender, EventArgs e)
+        {
+            Point point = glcPictureViewer.PointToClient(Control.MousePosition);
+
+            RibbonHitInfo hitInfo = glcPictureViewer.CalcHitInfo(point);
+
+            if (hitInfo.InGalleryItem || hitInfo.HitTest == RibbonHitTest.GalleryImage)
+                item = hitInfo.GalleryItem;
+
+        }
+
+        private void popmManagrGallery_CloseUp(object sender, EventArgs e)
+        {
+            item = null;
+        }
+        private void brbtnSelect_ItemClick(object sender, DevExpress.XtraBars.ItemClickEventArgs e)
+        {
+            if (item != null)
+                if (item.Checked)
+                {
+                    item.Checked = false;
+                    lstPictureSelected.Remove(item.Caption);
+
+                }
+                else
+                {
+                    item.Checked = true;
+                    lstPictureSelected.Add(item.Caption);
+
+                }
+
+        }
+        private void barbtnOpenWithPhotoshop_ItemClick(object sender, DevExpress.XtraBars.ItemClickEventArgs e)
+        {
+                    TestDataBaseConnection photoshopPath = new TestDataBaseConnection();
+            TestDataBaseConnection TempPath = new TestDataBaseConnection();
+
+            if (item != null)
+            {
+
+                //w2480
+                //h3307
+
+                //MessageBox.Show("MouseClick Event");
+                Random rnd = new Random();
+                int RanNumber = rnd.Next(1, 1000);
+                //     string SavePath = @"E:\GhasedakTempPicture" + RanNumber.ToString() + ".jpg";
+                string SavePath = TempPath.ReadTempOfImagesPathFromFile()+"Image" + RanNumber.ToString() + ".jpg";
+                int i = Convert.ToInt32(item.Caption);
+
+                try
+                {
+
+                    Bitmap b = new Bitmap(lstPictures[--i]);
+                    b.Save(SavePath, System.Drawing.Imaging.ImageFormat.Jpeg);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message);
+                }
+                //   MessageBox.Show();
+                Process PhotoShop = new Process();
+                 PhotoShop.StartInfo.FileName = photoshopPath.ReadPhotoshopPathFromFile();
+
+               // PhotoShop.StartInfo.FileName = @"C:\Program Files\Adobe\Adobe Photoshop CS6\Photoshop.exe"
+       ;
+                PhotoShop.StartInfo.Arguments = SavePath;
+                PhotoShop.Start();
+
+
+                MessageBox.Show(SavePath.ToString());
+
+
+            }
+        }
         private void SearchCustomer(string txtSearch)
         {
 
-            if (txtSearchBox.Text != "")
+            if (txtSearchBox.Text != string.Empty)
             {
                 if (rdBtnPictureNumber.Checked)
                 {
                     if (chbxMan.Checked && chbxWoman.Checked)
                     {
-                        SearchResult(CLS.DBHandler.GetAllCustomerSearchCodeQuery(txtSearch));
+                        Result(CLS.DBHandler.GetAllCustomerSearchCodeQuery(txtSearch));
 
                     }
                     else if (chbxMan.Checked)
                     {
-                        SearchResult(CLS.DBHandler.GetManCustomersSearchCodeQuery(txtSearch));
+                        Result(CLS.DBHandler.GetManCustomersSearchCodeQuery(txtSearch));
 
                     }
                     else if (chbxWoman.Checked)
                     {
-                        SearchResult(CLS.DBHandler.GetWoManCustomersSearchCodeQuery(txtSearch));
+                        Result(CLS.DBHandler.GetWoManCustomersSearchCodeQuery(txtSearch));
                     }
                 }
                 else if (rdBtnFName.Checked)
                 {
                     if (chbxMan.Checked && chbxWoman.Checked)
                     {
-                        SearchResult(CLS.DBHandler.GetAllCustomerSearchFirstNameQuery(txtSearch));
+                        Result(CLS.DBHandler.GetAllCustomerSearchFirstNameQuery(txtSearch));
                     }
                     else if (chbxMan.Checked)
                     {
-                        SearchResult(CLS.DBHandler.GetManCustomersSearchFirstNameQuery(txtSearch));
+                        Result(CLS.DBHandler.GetManCustomersSearchFirstNameQuery(txtSearch));
 
                     }
                     else if (chbxWoman.Checked)
                     {
-                        SearchResult(CLS.DBHandler.GetWoManCustomersSearchFirstNameQuery(txtSearch));
+                        Result(CLS.DBHandler.GetWoManCustomersSearchFirstNameQuery(txtSearch));
                     }
                 }
                 else if (rdBtnLName.Checked)
                 {
                     if (chbxMan.Checked && chbxWoman.Checked)
                     {
-                        SearchResult(CLS.DBHandler.GetAllCustomerSearchLastNameQuery(txtSearch));
+                        Result(CLS.DBHandler.GetAllCustomerSearchLastNameQuery(txtSearch));
                     }
                     else if (chbxMan.Checked)
                     {
-                        SearchResult(CLS.DBHandler.GetManCustomersSearchLastNameQuery(txtSearch));
+                        Result(CLS.DBHandler.GetManCustomersSearchLastNameQuery(txtSearch));
 
                     }
                     else if (chbxWoman.Checked)
                     {
-                        SearchResult(CLS.DBHandler.GetWoManCustomersSearchLastNameQuery(txtSearch));
+                        Result(CLS.DBHandler.GetWoManCustomersSearchLastNameQuery(txtSearch));
                     }
                 }
                 else if (rdBtnDName.Checked)
                 {
                     if (chbxMan.Checked && chbxWoman.Checked)
                     {
-                        SearchResult(CLS.DBHandler.GetAllCustomerSearchFatherNameQuery(txtSearch));
+                        Result(CLS.DBHandler.GetAllCustomerSearchFatherNameQuery(txtSearch));
                     }
                     else if (chbxMan.Checked)
                     {
-                        SearchResult(CLS.DBHandler.GetManCustomersSearchFatherNameQuery(txtSearch));
+                        Result(CLS.DBHandler.GetManCustomersSearchFatherNameQuery(txtSearch));
 
                     }
                     else if (chbxWoman.Checked)
                     {
-                        SearchResult(CLS.DBHandler.GetWoManCustomersSearchFatherNameQuery(txtSearch));
+                        Result(CLS.DBHandler.GetWoManCustomersSearchFatherNameQuery(txtSearch));
                     }
                 }
 
-                else if (rdBtnCeatedAtDate.Checked)
-                {
-                    if (chbxMan.Checked && chbxWoman.Checked)
-                    {
-                        SearchResult(CLS.DBHandler.GetAllCustomerSearchCreatedAtDateQuery(txtSearch));
-                    }
-                    else if (chbxMan.Checked)
-                    {
-                        SearchResult(CLS.DBHandler.GetManCustomersSearchCreatedAtDateQuery(txtSearch));
+                /*   else if (rdBtnCeatedAtDate.Checked)
+                   {
+                       if (chbxMan.Checked && chbxWoman.Checked)
+                       {
+                           SearchResult(CLS.DBHandler.GetAllCustomerSearchCreatedAtDateQuery(txtSearch));
+                       }
+                       else if (chbxMan.Checked)
+                       {
+                           SearchResult(CLS.DBHandler.GetManCustomersSearchCreatedAtDateQuery(txtSearch));
 
-                    }
-                    else if (chbxWoman.Checked)
-                    {
-                        SearchResult(CLS.DBHandler.GetWoManCustomersSearchCreatedAtDateQuery(txtSearch));
-                    }
-                }
-                else if (rdBtnEditedAtDate.Checked)
-                {
-                    if (chbxMan.Checked && chbxWoman.Checked)
-                    {
-                        SearchResult(CLS.DBHandler.GetAllCustomerSearchEditedAtDateQuery(txtSearch));
-                    }
-                    else if (chbxMan.Checked)
-                    {
-                        SearchResult(CLS.DBHandler.GetManCustomersSearchEditedAtDateQuery(txtSearch));
+                       }
+                       else if (chbxWoman.Checked)
+                       {
+                           SearchResult(CLS.DBHandler.GetWoManCustomersSearchCreatedAtDateQuery(txtSearch));
+                       }
+                   }
+                   else if (rdBtnEditedAtDate.Checked)
+                   {
+                       if (chbxMan.Checked && chbxWoman.Checked)
+                       {
+                           SearchResult(CLS.DBHandler.GetAllCustomerSearchEditedAtDateQuery(txtSearch));
+                       }
+                       else if (chbxMan.Checked)
+                       {
+                           SearchResult(CLS.DBHandler.GetManCustomersSearchEditedAtDateQuery(txtSearch));
 
-                    }
-                    else if (chbxWoman.Checked)
-                    {
-                        SearchResult(CLS.DBHandler.GetWoManCustomersSearchEditedAtDateQuery(txtSearch));
-                    }
-                }
+                       }
+                       else if (chbxWoman.Checked)
+                       {
+                           SearchResult(CLS.DBHandler.GetWoManCustomersSearchEditedAtDateQuery(txtSearch));
+                       }
+                   }*/
                 else if (rdBtnPhoneNumber.Checked)
                 {
                     if (chbxMan.Checked && chbxWoman.Checked)
                     {
-                        SearchResult(CLS.DBHandler.GetAllCustomerSearchPhoneNumberQuery(txtSearch));
+                        Result(CLS.DBHandler.GetAllCustomerSearchPhoneNumberQuery(txtSearch));
 
                     }
                     else if (chbxMan.Checked)
                     {
-                        SearchResult(CLS.DBHandler.GetManCustomersSearchPhoneNumberQuery(txtSearch));
+                        Result(CLS.DBHandler.GetManCustomersSearchPhoneNumberQuery(txtSearch));
 
                     }
                     else if (chbxWoman.Checked)
                     {
-                        SearchResult(CLS.DBHandler.GetWoManCustomersSearchPhoneNumberQuery(txtSearch));
+                        Result(CLS.DBHandler.GetWoManCustomersSearchPhoneNumberQuery(txtSearch));
                     }
                 }
 
@@ -397,7 +561,7 @@ dgCustomerList.Columns["Customer_Id"].Visible = false;
             }
             else
             {
-                SearchResult(CLS.DBHandler.GetCustomerListQuery());
+                Result(CLS.DBHandler.GetCustomerListQuery());
                 SelectedRow();
             }
         }
@@ -408,23 +572,16 @@ dgCustomerList.Columns["Customer_Id"].Visible = false;
 
         }
 
-        private void chbStorePicture_CheckedChanged(object sender, EventArgs e)
-        {
 
-        }
 
         private void btnAddCustomer_Click(object sender, EventArgs e)
         {
 
-            AddCustomer.ShowDialog();
+            ShowAddCustomer.ShowDialog();
 
         }
 
-        private void simpleButton9_Click(object sender, EventArgs e)
-        {
-            InitializeDgCustomerListColor();
 
-        }
 
 
 
@@ -439,12 +596,7 @@ dgCustomerList.Columns["Customer_Id"].Visible = false;
 
         }
 
-        private void btnDeleteCustomer_Click(object sender, EventArgs e)
-        {
-            DeleteCustomerMethod();
-            
-            SearchResult(CLS.DBHandler.GetCustomerListQuery());
-        }
+
 
         private void chbxMan_CheckedChanged(object sender, EventArgs e)
         {
@@ -480,7 +632,7 @@ dgCustomerList.Columns["Customer_Id"].Visible = false;
             SearchCustomer(txtSearchBox.Text);
 
         }
-       
+
         private void rdBtnPictureNumber_CheckedChanged(object sender, EventArgs e)
         {
             SearchCustomer(txtSearchBox.Text);
@@ -526,107 +678,67 @@ dgCustomerList.Columns["Customer_Id"].Visible = false;
         private void FRMCustomerList_Load(object sender, EventArgs e)
         {
 
-            ConnectionString = CLS.DBHandler.GetConnectionString();
-            SearchResult(CLS.DBHandler.GetCustomerListQuery());
-            SelectedRow();
+            InitializeDgCustomerList();
 
-            
+            ConnectionString = CLS.DBHandler.GetConnectionString();
+            Result(CLS.DBHandler.GetCustomerListQuery());
+
         }
 
         private void DgCustomerList_CurrentCellChanged(object sender, EventArgs e)
-        {           
+        {
             SelectedRow();
 
         }
 
-      
+
         FRMEditCustomer EditCustomer = new FRMEditCustomer();
 
         private void btnEnableEditing_Click(object sender, EventArgs e)
         {
-          
-            
 
-                EditCustomer.ShowDialog();
-            
-        
+
+
+            EditCustomer.ShowDialog();
+
+
         }
 
-     
 
-        public void DeleteCustomerMethod()
-        {
-          DialogResult Result= FRMMessageBox.Show("!هشدار", "حذف اطلاعات","["+ strCustomerFirstName+strCustomerLastName+"]\n"+"آیا مشتری مورد نظر حذف شود؟", enumMessageIcon.Question, enumMessageButton.YesNo);
-            if (Result == DialogResult.Yes)
-            {
-             /*   if ()
-                {
 
-                }
-                else
-                {
 
-                }*/
-             AccessLayer.DC(strCustomerCode);
-             FRMMessageBox.Show("!توجه"," حذف مشتری",".حذف مشتری با موفقیت انجام شد",enumMessageIcon.Information,enumMessageButton.OK);
-
-              //  FRMMessageBox.Show("!هشدار", "حذف مشتری", " !مشتری حذف نشد\n.ابتدا اقدام به بستن حساب های مشتری نمایید و مجددا تلاش کنید",enumMessageIcon.Information,enumMessageButton.OK);
-
-                
-            }
-        }
-        
 
         private void chbShow_HidePictures_CheckedChanged(object sender, EventArgs e)
         {
 
-          /*  if (chbShow_HidePictures.Checked)
-            {
-                chbShow_HidePictures.Text = "پنهان کردن تصاویر";
-                pnlPictureViewer.Visible = true;
-                CLS.CLSProgressSavePictures cPro = new CLS.CLSProgressSavePictures();
-                cPro.startProgress();
-                cPro.stopProgress();
-            }
-            else
-            {
-                chbShow_HidePictures.Text = "نمایش";
-               
+            /*  if (chbShow_HidePictures.Checked)
+              {
+                  chbShow_HidePictures.Text = "پنهان کردن تصاویر";
+                  pnlPictureViewer.Visible = true;
+                  CLS.CLSProgressSavePictures cPro = new CLS.CLSProgressSavePictures();
+                  cPro.startProgress();
+                  cPro.stopProgress();
+              }
+              else
+              {
+                  chbShow_HidePictures.Text = "نمایش";
 
-                pnlPictureViewer.Visible = false;
 
-            }
-            */
+                  pnlPictureViewer.Visible = false;
+
+              }
+              */
 
         }
-        private void PersianCalenderBirthDay_SelectedDateChanged(DateTime selectedDateTime, BehComponents.PersianDateTime selectedPersianDateTime)
-        {
-        /*    txtBirthDay.Text = PersianCalenderBirthDay.GetSelectedDateInPersianDateTime().ToShortDateString();
-            PersianCalenderBirthDay.Visible = false;*/
-        }
-        private void txtCustomerCode_TextChanged(object sender, EventArgs e)
-        {
-        }
 
-      
-      
-        
 
-        private void chbShowPicture_CheckedChanged(object sender, EventArgs e)
-        {
-            if (chbShowPicture.Checked == true)
-            {
-                pnlPicture.Visible = true;
-            }
-            else
-            {
-                pnlPicture.Visible = false;
-            }
-        }
+
+
+
 
         private void btnRefreshList_Click(object sender, EventArgs e)
         {
-            SearchResult(CLS.DBHandler.GetCustomerListQuery());
+            Result(CLS.DBHandler.GetCustomerListQuery());
 
         }
 
@@ -641,7 +753,7 @@ dgCustomerList.Columns["Customer_Id"].Visible = false;
         {
         }
 
-      
+
 
         private void btnEndOfRows_Click(object sender, EventArgs e)
         {
@@ -655,9 +767,9 @@ dgCustomerList.Columns["Customer_Id"].Visible = false;
             if (nRow < dgCustomerList.RowCount)
             {
                 dgCustomerList.Rows[nRow].Selected = false;
-                if(nRow < dgCustomerList.RowCount-1)
+                if (nRow < dgCustomerList.RowCount - 1)
                 {
-                dgCustomerList.Rows[++nRow].Selected = true;
+                    dgCustomerList.Rows[++nRow].Selected = true;
                     SelectedRow();
 
                 }
@@ -678,6 +790,30 @@ dgCustomerList.Columns["Customer_Id"].Visible = false;
             dgCustomerList.Rows[dgCustomerList.RowCount - 1].Selected = true;
         }
 
-     
+        private void FRMSearchAndPrint_Load(object sender, EventArgs e)
+        {
+            ChangeLanguage();
+            SelectedRow();
+        }
+
+        private void BarAddCustomer_ItemClick(object sender, DevExpress.XtraBars.ItemClickEventArgs e)
+        {
+            ShowAddCustomer.ShowDialog();
+
+        }
+
+        private void CustomerList_ItemClick(object sender, DevExpress.XtraBars.ItemClickEventArgs e)
+        {
+            ShowCustomerList.ShowDialog();
+
+        }
+
+        FRMSetting ShowSettin = new FRMSetting();
+        private void brbtnSetting_ItemClick(object sender, DevExpress.XtraBars.ItemClickEventArgs e)
+        {
+            ShowSettin.ShowDialog();
+        }
+
+       
     }
 }

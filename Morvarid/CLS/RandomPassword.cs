@@ -6,7 +6,7 @@ using System.Text;
 
 namespace Morvarid.CLS
 {
-    class CLSRandomPassword
+    class RandomPassword
     {
         // Define default min and max password lengths.
         private static int DEFAULT_MIN_PASSWORD_LENGTH = 4;
